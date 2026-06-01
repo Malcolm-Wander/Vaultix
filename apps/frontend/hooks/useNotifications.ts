@@ -1,12 +1,14 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { notificationService } from '@/services/notification';
 import { Notification } from '@/types/notification';
+import { useWebSocket } from '@/providers/WebSocketProvider';
 
 interface UseNotificationsReturn {
   notifications: Notification[];
   unreadCount: number;
   isLoading: boolean;
   error: Error | null;
+  connectionStatus: 'connected' | 'reconnecting' | 'disconnected' | 'error';
   markAsRead: (notificationId?: string) => Promise<void>;
   markAllAsRead: () => Promise<void>;
   refetch: () => Promise<void>;
@@ -17,6 +19,12 @@ export const useNotifications = (): UseNotificationsReturn => {
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<Error | null>(null);
+  const notificationsRef = useRef<Notification[]>([]);
+  const { onNotification, offNotification, status: connectionStatus } = useWebSocket();
+
+  useEffect(() => {
+    notificationsRef.current = notifications;
+  }, [notifications]);
 
   const fetchNotifications = useCallback(async () => {
     try {
@@ -56,17 +64,41 @@ export const useNotifications = (): UseNotificationsReturn => {
   useEffect(() => {
     fetchNotifications();
 
-    // Poll for new notifications every 10 seconds
-    const interval = setInterval(fetchNotifications, 10000);
+    const handleNotification = (payload: Notification) => {
+      setNotifications((current) => {
+        const exists = current.some((notification) => notification.id === payload.id);
+        if (exists) {
+          return current.map((notification) =>
+            notification.id === payload.id ? payload : notification,
+          );
+        }
+        return [payload, ...current];
+      });
 
-    return () => clearInterval(interval);
-  }, [fetchNotifications]);
+      setUnreadCount((current) => {
+        const alreadyExists = notificationsRef.current.some(
+          (notification) => notification.id === payload.id,
+        );
+        if (alreadyExists) {
+          return current;
+        }
+        return current + (payload.readAt ? 0 : 1);
+      });
+    };
+
+    onNotification(handleNotification);
+
+    return () => {
+      offNotification(handleNotification);
+    };
+  }, [fetchNotifications, onNotification, offNotification]);
 
   return {
     notifications,
     unreadCount,
     isLoading,
     error,
+    connectionStatus,
     markAsRead,
     markAllAsRead,
     refetch: fetchNotifications,

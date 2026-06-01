@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useEscrow } from "@/hooks/useEscrow";
 import { useWallet } from "@/hooks/useWallet";
+import { useEscrowEvents } from "@/hooks/useEscrowEvents";
 import EscrowHeader from "@/components/escrow/detail/EscrowHeader";
 import PartiesSection from "@/components/escrow/detail/PartiesSection";
 import TermsSection from "@/components/escrow/detail/TermsSection";
@@ -28,6 +29,37 @@ const EscrowDetailPage = () => {
   const [disputeOpen, setDisputeOpen] = useState(false);
   const [resolutionOpen, setResolutionOpen] = useState(false);
   const [dispute, setDispute] = useState<any>(null);
+  const { status: escrowSocketStatus, onEscrowEvent } = useEscrowEvents(id as string);
+
+  useEffect(() => {
+    const cleanupFunctions: Array<() => void> = [];
+
+    cleanupFunctions.push(
+      onEscrowEvent('escrow:status_changed', () => refetch()),
+    );
+    cleanupFunctions.push(
+      onEscrowEvent('escrow:funded', () => refetch()),
+    );
+    cleanupFunctions.push(
+      onEscrowEvent('escrow:completed', () => refetch()),
+    );
+    cleanupFunctions.push(
+      onEscrowEvent('escrow:dispute_filed', () => refetch()),
+    );
+    cleanupFunctions.push(
+      onEscrowEvent('escrow:dispute_resolved', () => refetch()),
+    );
+
+    return () => {
+      cleanupFunctions.forEach((cleanup) => cleanup());
+    };
+  }, [id, onEscrowEvent, refetch]);
+
+  useEffect(() => {
+    if (escrowSocketStatus === 'connected') {
+      refetch();
+    }
+  }, [escrowSocketStatus, refetch]);
 
   useEffect(() => {
     if (escrow && publicKey) {

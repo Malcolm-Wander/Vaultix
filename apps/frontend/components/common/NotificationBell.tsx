@@ -12,7 +12,7 @@ interface NotificationBellProps {
 
 const NotificationBell: React.FC<NotificationBellProps> = ({ className = '' }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const { notifications, unreadCount, isLoading, markAsRead, markAllAsRead } = useNotifications();
+  const { notifications, unreadCount, isLoading, connectionStatus, markAsRead, markAllAsRead } = useNotifications();
 
   // Group notifications by date
   const groupedNotifications = notifications.reduce((acc, notification) => {
@@ -99,8 +99,24 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ className = '' }) =
         onClick={() => setIsOpen(!isOpen)}
         className="relative p-2 text-gray-300 hover:text-white transition-colors"
         aria-label="Notifications"
+        title={
+          connectionStatus === 'connected'
+            ? 'Realtime updates active'
+            : connectionStatus === 'reconnecting'
+            ? 'Realtime reconnecting'
+            : 'Realtime disconnected'
+        }
       >
         <Bell className="w-6 h-6" />
+        <span
+          className={`absolute -top-1 -right-1 h-3 w-3 rounded-full border border-black transition-colors ${
+            connectionStatus === 'connected'
+              ? 'bg-emerald-400'
+              : connectionStatus === 'reconnecting'
+              ? 'bg-amber-400'
+              : 'bg-red-500'
+          }`}
+        />
         {unreadCount > 0 && (
           <span className="absolute top-0 right-0 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white transform translate-x-1/4 -translate-y-1/4 bg-red-500 rounded-full">
             {unreadCount > 99 ? '99+' : unreadCount}
@@ -120,9 +136,27 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ className = '' }) =
           {/* Panel */}
           <div className="absolute right-0 mt-2 w-96 max-w-[calc(100vw-2rem)] bg-gray-900 border border-gray-700 rounded-lg shadow-2xl z-50 overflow-hidden">
             {/* Header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700">
-              <h3 className="text-lg font-semibold text-white">Notifications</h3>
-              <div className="flex items-center gap-2">
+            <div className="flex flex-col gap-2 px-4 py-3 border-b border-gray-700">
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="text-lg font-semibold text-white">Notifications</h3>
+                <div className="inline-flex items-center gap-2 rounded-full bg-slate-950/80 px-3 py-1 text-xs uppercase tracking-[0.18em] text-gray-400">
+                  <span
+                    className={`h-2.5 w-2.5 rounded-full ${
+                      connectionStatus === 'connected'
+                        ? 'bg-emerald-400'
+                        : connectionStatus === 'reconnecting'
+                        ? 'bg-amber-400'
+                        : 'bg-red-500'
+                    }`}
+                  />
+                  {connectionStatus === 'connected'
+                    ? 'Live'
+                    : connectionStatus === 'reconnecting'
+                    ? 'Reconnecting'
+                    : 'Disconnected'}
+                </div>
+              </div>
+              <div className="flex items-center justify-between gap-2">
                 {unreadCount > 0 && (
                   <button
                     onClick={handleMarkAllAsRead}
